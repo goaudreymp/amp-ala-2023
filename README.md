@@ -3,6 +3,7 @@ This repo includes data, code, markdown, and final html for an exploratory visua
 The associated code files includes:
 - Rproject for easy management of files and code (`amp-ala-2023.Rproj`)
 - final html file knitted from the rmd (`amp-ala-rept.html`)
+- final .docx file knitted from the rmd (`amp-ala-rept.docx`)
 - updated R markdown file (`amp-ala-rept.Rmd`)
 - and a previous draft R script file (`exp-ala-rept.R`)
 
