@@ -1,0 +1,246 @@
+---
+title: "ALA ACT Reptile Records (02-2023)"
+author: "Audrey Miranda Prasetya"
+date: "2023-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, results = "hide"}
+#loading necessary packages
+library(tidyverse)
+library(viridis)
+```
+
+.csv file downloaded from [Atlas of Living Australia](https://biocache.ala.org.au/occurrences/search?q=lsid%3Ahttps%3A%2F%2Fbiodiversity.org.au%2Fafd%2Ftaxa%2F682e1228-5b3c-45ff-833b-550efd40c399&qualityProfile=ALA&fq=state%3A%22Australian+Capital+Territory%22) on 28 February 2023. Full occurrence records with Full Darwin Core download format was selected.
+```{r, results = "hide"}
+#read file
+act.rept <- read.csv("dwc-reptiles-act.csv")
+
+#check columns and select to interested 
+head(act.rept)
+colnames(act.rept)
+
+#selected columns of interest, mainly those with columns of that has most data
+act.df <- act.rept %>% select(species, genus, family, order, vernacularName, sex, 
+                              individualCount, basisOfRecord, occurrenceStatus, provenance,  
+                              year, month, habitat)
+```
+A quick check and view of the data to determine whether to keep some variables.
+
+```{r, results = "hide"}
+#quick check and explore
+summary(act.df) 
+str(act.df) #some "empty" cells, be aware
+
+act.df %>% count(species) #remove records with no species name and count no of. records
+
+act.df <- act.df %>% filter(species != "") #remove records with no species names as it is less informative
+
+act.df %>% count(family, genus)
+
+act.df %>% count(sex) #very little of the records actually have sex recorded - remove
+act.df %>% count(individualCount) #more than half has individual count records
+act.df %>% count(basisOfRecord) #all has basis of record 
+act.df %>% count(occurrenceStatus) #no 'absent' type data - remove 
+act.df %>% count(provenance) #20% from published dataset, many not recorded info
+act.df %>% count(year) #check for NAs when use
+act.df %>% count(month) #check for NAs when use
+act.df %>% count(habitat) #inconsistent usage of terms, might be difficult to use for this quick analysis - remove
+```
+
+Final decision on 10 selected variables to use for visualization.
+```{r}
+act.df <- act.df %>% select(-sex, -occurrenceStatus, -habitat)
+```
+
+Changing and refactoring of variables for consistency and plotting.
+```{r}
+#change meaningful variables to factor
+act.df$family <- as.factor(act.df$family)
+act.df$basisOfRecord <- factor(act.df$basisOfRecord,
+                               labels = c("Human Observation", "Material Sample", "Observation", "Occurrence", "Preserved Specimen"))
+act.df$month <- as.factor(act.df$month)
+act.df$provenance <- factor(act.df$provenance, 
+                            levels = c("Published dataset", "Individual sightings", ""), 
+                            labels = c("Published", "Sightings", "Unknown"))
+
+#adding a season factor to visualise
+act.df <- act.df %>% mutate(season = case_when(month %in% c(12, 1, 2) ~ "summer",
+                                                     month %in% c(3, 4, 5) ~ "autumn",
+                                                     month %in% c(6, 7, 8) ~ "winter",
+                                                     month %in% c(9, 10, 11) ~ "spring"))
+act.df$season <- factor(act.df$season)
+
+str(act.df) #check
+head(act.df)
+```
+## Temporal Trends in ALA's ACT Reptilia Records
+### Type Trends
+How do the type of records change over the years?
+
+First, do we see an increase in no of records?
+```{r}
+act.year <- act.df %>% filter(year!="") #remove records without years
+head(act.year)
+
+#cumulative no of records
+act.y.sum <- act.year %>% group_by(year) %>% summarize(n = n())
+act.y.sum$cumulative <- cumsum(act.y.sum$n)
+head(act.y.sum)
+```
+
+```{r fig 1, id = "fig1", fig.width = 12}
+ggplot(act.y.sum, aes(x = year, y = cumulative)) +
+  geom_line(linewidth = 1) +
+  scale_y_continuous(limits = c(0, 10000), expand = c(0,0), breaks = c(0, 2000, 4000, 6000, 8000, 10000)) +
+  xlab("Year") +
+  ylab("Cumulative No. of Records") +
+  theme_minimal() +
+  theme(legend.position = "none", axis.line = element_line(colour = "black"))
+```
+
+**Figure 1** Cumulative no of reptiles recorded in the Australian Capital Territory from the Atlas of Living Australia.
+
+We can see from Figure 1 that there is a steeper curve post 2010 indicating an increase in the number of records in reptiles. There is also a slight peak at the year 1990. 
+
+Do the type of data recorded differ between years?
+```{r fig 2, id ="fig2", fig.width = 12}
+ggplot(act.year, aes(x = year, fill = provenance)) +
+  geom_bar(stat="count") +
+  scale_y_continuous(limits = c(0, 900), expand = c(0,0), breaks = c(0, 200, 400, 800)) +
+  xlab("Year") +
+  ylab("No. of Records") +
+  labs(fill = "") +
+  theme_minimal() +
+  theme(legend.position = "right", axis.line = element_line(colour = "black"))
+```
+
+**Figure 2** Number of reptiles recorded in the Australian Capital Territory from the Atlas of Living Australia. Colours highlight provenance of record.
+
+Here in Figure 2 we can see an interesting temporal trend. Early records pre-1990s are mostly published dataset. Only more recently do we see an increase in 'sightings' and records with 'unknown' provenance.
+
+Can we also see a trend in the basis of record?
+```{r fig3, id ="fig3", fig.width = 12}
+ggplot(act.year, aes(x = year, fill = basisOfRecord)) +
+  geom_bar(stat="count") + 
+  facet_wrap(~provenance, scales = "free_y") +
+  scale_y_continuous(expand = c(0,0)) +
+  xlab("Year") +
+  ylab("No. of Records") +
+  labs(fill = "") +
+  theme_minimal() +
+  theme(legend.position = "right", axis.line = element_line(colour = "black"))
+```
+
+**Figure 3** Number of reptiles recorded in the Australian Capital Territory from the Atlas of Living Australia. Records are split based on provenance and colours highlight basis of record.
+
+We get an even clearer view of this in this graph. Most published dataset records are preserved specimens. Very little is actually based on observation/occurences. Human observation samples are mainly found after 2010s, which likely corresponds to the increase in citizen science records. Thus, only more recent papers have started including observation data. Although, only a very small portion of our dataset has been used in published datasets!
+
+### Taxon Trends
+Are there changes differences in the taxa recorded over the years? We'll focus on family-level taxa as it is a manageable category for visualisation.
+
+```{r}
+#setting up the dataframe
+fam.count <- act.df %>% filter(year != "") %>% count(family, year)
+head(fam.count)
+
+f.col <- viridis(length(unique(fam.count$family))) #colors for visualisation
+```
+How many records for each reptile family?
+```{r fig4, id ="fig4", fig.width = 12}
+ggplot(fam.count, aes(x = family, y = n, fill = family)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = f.col) +
+  scale_y_continuous(expand = c(0,0)) +
+  xlab("Reptilia Family") +
+  ylab("No. of Records") +
+  labs(fill = "") +
+  theme_minimal() +
+  theme(legend.position = "right", axis.line = element_line(colour = "black"))
+```
+
+**Figure 4** Number of reptiles recorded in the Australian Capital Territory from the Atlas of Living Australia, categorised by family-level taxonomy.
+
+Most records are overwhelmingly from skinks, followed by agamids.
+
+Does the trend change over time for which family is recorded?
+```{r fig 5, id ="fig5", fig.width = 12}
+ggplot(act.year, aes(x = year, fill = family)) +
+  geom_bar(stat="count") +
+  scale_fill_manual(values = f.col) +
+  scale_y_continuous(expand = c(0,0)) +
+  xlab("Year") +
+  ylab("No. of Records") +
+  labs(fill = "") +
+  theme_minimal() +
+  theme(legend.position = "right", axis.line = element_line(colour = "black"), )
+```
+
+**Figure 5** Number of reptiles recorded in the Australian Capital Territory from the Atlas of Living Australia over the years, categorised by family-level taxonomy.
+
+There are consistently a lot of skinks recorded in the ACT!
+
+Is there a monthly trend of recorded taxa?
+```{r}
+#setting up dataframe and colors
+fam.month <- act.df  %>% filter(year != "", month !=  "") %>% count(family, month, year, season)
+head(fam.month)
+
+s.col <- c("#D55E00", "#CC79A7", "#009E73","#56B4E9")
+```
+
+```{r fig6, id ="fig6", fig.width = 12}
+ggplot(fam.month, aes(x = month, y = n, fill = season)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~family, scales ="free_y", ncol=4) +
+  scale_fill_manual(values = s.col)  +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(fill = "") +
+  xlab("Month") +
+  ylab("No. of Records") +
+  theme_minimal() +
+  theme(axis.line = element_line(colour = "black"), strip.text = element_text(face = "bold"))
+```
+
+**Figure 6** Number of reptiles recorded in the Australian Capital Territory from the Atlas of Living Australia over the months, categorised by family-level taxonomy. Colors represent rough seasonal boundaries.
+
+Mostreptile are recorded in the spring and summer and least during the winter which is expected! Trend is less so for sea turtles (Cheloniidae) although we only have one individual recording - this is quite an enigma as the ACT does not have any bodies of water!
+
+I thought that this might have been a museum specimen, but it seems the basis of record is human observation, and from a published study.
+```{r}
+act.df %>% filter(family == "Cheloniidae")
+```
+Other than that, most reptiles are recorded in months Oct-Dec. Some are present for more towards the spring such as the agamids (Agamidae), skinks (Scincidae), elapids (Elapidae), and freshwater turtles(Cheliidae). Others are found more towards the summer including monitor lizards (Varanidae), geckos (Gekkonidae), and pythons (Pythonidae).
+
+Finally, do we also tend to see more individuals (rather than just no of records?)
+
+```{r}
+#since we have some data on individual counts for some records, we will sum it up per family per month
+fam.ind <- act.df %>% 
+  filter(individualCount > 0, month !="") %>%  
+  group_by(family, month, season) %>% 
+  summarize(summed =sum(individualCount))
+head(fam.ind)
+```
+
+```{r fig7, id ="fig7", fig.width = 12}
+ggplot(fam.ind, aes(x = month, y = summed, fill = season)) +
+  geom_bar(stat = "identity") +
+  facet_wrap(~family, scales = "free_y", ncol=4) +
+  scale_fill_manual(values = s.col)  +
+  scale_y_continuous(expand = c(0,0)) +
+  labs(fill = "") +
+  xlab("Month") +
+  ylab("No. of Individuals") +
+  theme_minimal() +
+  theme(axis.line = element_line(colour = "black"), strip.text = element_text(face = "bold"))
+```
+
+**Figure 7** Number of individual reptiles recorded in the Australian Capital Territory from the Atlas of Living Australia over the months, categorised by family-level taxonomy. Colors represent rough seasonal boundaries.
+
+Here in Figure 7 we show similar patterns to Figure 6. In other words, yes we do see not just more records, but more individuals recorded during the spring-summer months.
+
