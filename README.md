@@ -8,4 +8,4 @@ The associated code files includes:
 
 Necessary .csv file is included:
 - file that is loaded into the project (`dwc-reptiles-act.csv`)
-- original downloaded file from ALA (`dwc.zip`
+- original downloaded file from ALA (`dwc.zip`)
